@@ -1,3 +1,5 @@
+import logging
+
 from agents.emotion import EmotionAgent
 from agents.response import ResponseAgent
 from agents.risk import RiskAgent
@@ -6,11 +8,28 @@ from agents.therapy import TherapyAgent
 from core.context import WorkflowContext
 from core.workflow_engine import WorkflowEngine
 
+from models import ChatResponse
+
 from services.llm import LLMService
 from services.memory import MemoryService
 
+logger = logging.getLogger(__name__)
+
 
 class PsychologistWorkflow:
+    """
+    Multi-agent psychologist workflow.
+
+    Execution Order:
+
+        Emotion
+            ↓
+        Risk
+            ↓
+        Therapy
+            ↓
+        Response
+    """
 
     def __init__(self):
 
@@ -28,7 +47,12 @@ class PsychologistWorkflow:
         self,
         session_id: str,
         message: str,
-    ):
+    ) -> ChatResponse:
+
+        logger.info(
+            "Starting workflow. session=%s",
+            session_id,
+        )
 
         # Store current user message
         self.memory.add_message(
@@ -44,6 +68,20 @@ class PsychologistWorkflow:
             memory_service=self.memory,
         )
 
-        results = self.engine.execute(context)
+        workflow_results = self.engine.execute(context)
 
-        return context, results
+        final_response = ""
+
+        if context.state.response:
+            final_response = context.state.response.response
+
+        logger.info(
+            "Workflow completed. session=%s",
+            session_id,
+        )
+
+        return ChatResponse(
+            session_id=session_id,
+            workflow=workflow_results,
+            final_response=final_response,
+        )

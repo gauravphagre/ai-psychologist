@@ -18,9 +18,13 @@ class LLMService:
     """
 
     def __init__(self):
-        self.client = OpenAI(
-            api_key=settings.OPENAI_API_KEY
-        )
+        api_key = (settings.OPENAI_API_KEY or "").strip()
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY is not set. Add it to your environment (or a .env file) as OPENAI_API_KEY=..."
+            )
+
+        self.client = OpenAI(api_key=api_key)
 
     def chat(
         self,

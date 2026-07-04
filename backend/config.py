@@ -1,7 +1,14 @@
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
-load_dotenv()
+# Load environment variables from common locations.
+# This makes running from different working directories more reliable.
+_backend_dir = Path(__file__).resolve().parent
+_project_root = _backend_dir.parent
+
+load_dotenv(_backend_dir / ".env")
+load_dotenv(_project_root / ".env")
 
 
 class Settings:

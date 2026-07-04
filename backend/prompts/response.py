@@ -29,7 +29,7 @@ Limit the response to approximately 150-200 words.
 
 Return ONLY this JSON:
 
-{
+{{
     "response": "<final response>"
-}
+}}
 """
