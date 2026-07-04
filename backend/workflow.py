@@ -30,6 +30,13 @@ class PsychologistWorkflow:
         message: str,
     ):
 
+        # Store current user message
+        self.memory.add_message(
+            session_id=session_id,
+            role="user",
+            content=message,
+        )
+
         context = WorkflowContext(
             session_id=session_id,
             user_message=message,
@@ -37,4 +44,6 @@ class PsychologistWorkflow:
             memory_service=self.memory,
         )
 
-        return self.engine.execute(context)
+        results = self.engine.execute(context)
+
+        return context, results
