@@ -37,7 +37,10 @@ class ResponseAgent(BaseAgent):
                     "user",
                     "emotion",
                     "risk",
+                    "wellness",
+                    "safety",
                     "therapy",
+                    "resources",
                 ]
             ),
             response_model=ResponseResult,

@@ -1,5 +1,3 @@
-from typing import Callable
-
 from models import WorkflowState
 from services.llm import LLMService
 from services.memory import MemoryService
@@ -7,13 +5,13 @@ from services.memory import MemoryService
 
 class WorkflowContext:
     """
-    Shared context available to every workflow agent.
+    Shared context passed to every agent.
 
-    Holds:
-    - Session information
-    - User input
-    - Workflow state
-    - Shared services
+    Contains:
+    - User message
+    - Conversation memory
+    - Shared workflow state
+    - LLM service
     """
 
     def __init__(
@@ -31,110 +29,111 @@ class WorkflowContext:
 
         self.state = WorkflowState()
 
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
+    # Conversation History
+    # ---------------------------------------------------------
+
+    @property
+    def history(self) -> str:
+        """
+        Returns the conversation history as text.
+        """
+
+        messages = self.memory_service.get_messages(
+            self.session_id
+        )
+
+        if not messages:
+            return ""
+
+        lines = []
+
+        for message in messages:
+            role = message["role"].capitalize()
+            content = message["content"]
+
+            lines.append(f"{role}: {content}")
+
+        return "\n".join(lines)
+
+    # ---------------------------------------------------------
     # Prompt Builder
-    # ----------------------------------------------------
+    # ---------------------------------------------------------
 
     def build_prompt(
         self,
         sections: list[str],
     ) -> str:
         """
-        Dynamically constructs a prompt using
-        registered section builders.
+        Dynamically build an LLM prompt using the requested sections.
         """
 
-        builders: dict[str, Callable[[], str]] = {
-            "user": self._build_user,
-            "history": self._build_history,
-            "emotion": self._build_emotion,
-            "risk": self._build_risk,
-            "therapy": self._build_therapy,
-        }
+        prompt = []
 
-        prompt_sections = []
-
-        for section in sections:
-
-            builder = builders.get(section)
-
-            if builder:
-
-                text = builder()
-
-                if text:
-
-                    prompt_sections.append(text)
-
-        return "\n\n".join(prompt_sections)
-
-    # ----------------------------------------------------
-    # Section Builders
-    # ----------------------------------------------------
-
-    def _build_user(self) -> str:
-
-        return f"""User Message:
-{self.user_message}"""
-
-    def _build_history(self) -> str:
-
-        history = self.memory_service.get_history(
-            self.session_id
-        )
-
-        if not history:
-
-            return ""
-
-        conversation = []
-
-        for message in history:
-
-            ts = message.get("timestamp")
-            prefix = f"[{ts}] " if ts else ""
-
-            conversation.append(
-                f"{prefix}{message['role']}: {message['content']}"
+        if "history" in sections and self.history:
+            prompt.append(
+                "Conversation History:\n"
+                f"{self.history}"
             )
 
-        return (
-            "Conversation History:\n"
-            + "\n".join(conversation)
-        )
+        if "user" in sections:
+            prompt.append(
+                "User Message:\n"
+                f"{self.user_message}"
+            )
 
-    def _build_emotion(self) -> str:
+        if (
+            "emotion" in sections
+            and self.state.emotion
+        ):
+            prompt.append(
+                "Emotion Analysis:\n"
+                f"{self.state.emotion.model_dump_json(indent=2)}"
+            )
 
-        if self.state.emotion is None:
+        if (
+            "risk" in sections
+            and self.state.risk
+        ):
+            prompt.append(
+                "Risk Assessment:\n"
+                f"{self.state.risk.model_dump_json(indent=2)}"
+            )
 
-            return ""
+        if (
+            "wellness" in sections
+            and self.state.wellness
+        ):
+            prompt.append(
+                "Wellness Recommendation:\n"
+                f"{self.state.wellness.model_dump_json(indent=2)}"
+            )
 
-        emotion = self.state.emotion
+        if (
+            "safety" in sections
+            and self.state.safety
+        ):
+            prompt.append(
+                "Safety Recommendation:\n"
+                f"{self.state.safety.model_dump_json(indent=2)}"
+            )
 
-        return f"""Detected Emotion:
-Emotion: {emotion.emotion}
-Intensity: {emotion.score}/10"""
+        if (
+            "therapy" in sections
+            and self.state.therapy
+        ):
+            prompt.append(
+                "Therapy Recommendation:\n"
+                f"{self.state.therapy.model_dump_json(indent=2)}"
+            )
 
-    def _build_risk(self) -> str:
+        if (
+            "resources" in sections
+            and self.state.resources
+        ):
+            prompt.append(
+                "Helpful Resources:\n"
+                f"{self.state.resources.model_dump_json(indent=2)}"
+            )
 
-        if self.state.risk is None:
-
-            return ""
-
-        risk = self.state.risk
-
-        return f"""Risk Assessment:
-Level: {risk.level}
-Reason: {risk.reason}"""
-
-    def _build_therapy(self) -> str:
-
-        if self.state.therapy is None:
-
-            return ""
-
-        therapy = self.state.therapy
-
-        return f"""Therapy Recommendation:
-Technique: {therapy.technique}
-Recommendation: {therapy.recommendation}"""
+        return "\n\n".join(prompt)
