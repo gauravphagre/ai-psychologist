@@ -46,6 +46,7 @@ class AgentResult(BaseModel):
     status: AgentStatus
     output: dict[str, Any] = Field(default_factory=dict)
     execution_time_ms: float
+    error: str | None = None
 
 
 class ChatResponse(BaseModel):

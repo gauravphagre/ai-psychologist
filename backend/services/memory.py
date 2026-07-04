@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, timezone
 
 
 class MemoryService:
@@ -12,10 +13,13 @@ class MemoryService:
         role: str,
         content: str,
     ):
+        timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
         self.sessions[session_id].append(
             {
                 "role": role,
                 "content": content,
+                "timestamp": timestamp,
             }
         )
 
