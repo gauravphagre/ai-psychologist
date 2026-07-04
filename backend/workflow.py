@@ -2,13 +2,14 @@ import logging
 
 from agents.emotion import EmotionAgent
 from agents.response import ResponseAgent
+from agents.resources import ResourceAgent
 from agents.risk import RiskAgent
+from agents.safety import SafetyAgent
 from agents.therapy import TherapyAgent
+from agents.wellness import WellnessAgent
 
 from core.context import WorkflowContext
 from core.workflow_engine import WorkflowEngine
-
-from models import ChatResponse
 
 from services.llm import LLMService
 from services.memory import MemoryService
@@ -18,17 +19,19 @@ logger = logging.getLogger(__name__)
 
 class PsychologistWorkflow:
     """
-    Multi-agent psychologist workflow.
-
-    Execution Order:
+    Executes the AI Psychologist workflow.
 
         Emotion
             ↓
-        Risk
+          Risk
+        ↙      ↘
+    Safety   Wellness
+        ↘      ↙
+         Therapy
             ↓
-        Therapy
+        Resources
             ↓
-        Response
+         Response
     """
 
     def __init__(self):
@@ -37,7 +40,10 @@ class PsychologistWorkflow:
 
         self.engine.add_step(EmotionAgent())
         self.engine.add_step(RiskAgent())
+        self.engine.add_step(SafetyAgent())
+        self.engine.add_step(WellnessAgent())
         self.engine.add_step(TherapyAgent())
+        self.engine.add_step(ResourceAgent())
         self.engine.add_step(ResponseAgent())
 
         self.llm = LLMService()
@@ -47,14 +53,13 @@ class PsychologistWorkflow:
         self,
         session_id: str,
         message: str,
-    ) -> ChatResponse:
+    ):
 
         logger.info(
             "Starting workflow. session=%s",
             session_id,
         )
 
-        # Store current user message
         self.memory.add_message(
             session_id=session_id,
             role="user",
@@ -68,20 +73,11 @@ class PsychologistWorkflow:
             memory_service=self.memory,
         )
 
-        workflow_results = self.engine.execute(context)
-
-        final_response = ""
-
-        if context.state.response:
-            final_response = context.state.response.response
+        results = self.engine.execute(context)
 
         logger.info(
             "Workflow completed. session=%s",
             session_id,
         )
 
-        return ChatResponse(
-            session_id=session_id,
-            workflow=workflow_results,
-            final_response=final_response,
-        )
+        return context, results

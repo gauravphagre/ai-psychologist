@@ -1,14 +1,10 @@
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from models import ChatRequest, ChatResponse
 from workflow import PsychologistWorkflow
-
-# -----------------------------------------------------------------------------
-# Logging
-# -----------------------------------------------------------------------------
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,53 +13,28 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# -----------------------------------------------------------------------------
-# FastAPI
-# -----------------------------------------------------------------------------
-
 app = FastAPI(
-    title="AI Psychologist",
+    title="AI Psychologist API",
     version="1.0.0",
-    description="Multi-Agent AI Psychologist Workflow",
 )
-
-# -----------------------------------------------------------------------------
-# CORS
-# -----------------------------------------------------------------------------
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# -----------------------------------------------------------------------------
-# Workflow
-# -----------------------------------------------------------------------------
-
 workflow = PsychologistWorkflow()
 
-# -----------------------------------------------------------------------------
-# Routes
-# -----------------------------------------------------------------------------
 
 @app.get("/")
-def root():
-    return {
-        "message": "AI Psychologist API",
-        "status": "running",
-    }
-
-
-@app.get("/health")
 def health():
+
     return {
         "status": "healthy",
+        "service": "AI Psychologist",
     }
 
 
@@ -74,28 +45,25 @@ def health():
 def chat(request: ChatRequest):
 
     logger.info(
-        "Incoming chat request. session=%s",
+        "Received chat request. session=%s",
         request.session_id,
     )
 
-    try:
+    context, results = workflow.execute(
+        session_id=request.session_id,
+        message=request.message,
+    )
 
-        response = workflow.execute(
-            session_id=request.session_id,
-            message=request.message,
-        )
+    graph = workflow.engine.get_workflow_graph(results)
 
-        logger.info(
-            "Workflow completed successfully."
-        )
+    final_response = ""
 
-        return response
+    if context.state.response:
+        final_response = context.state.response.response
 
-    except Exception as ex:
-
-        logger.exception("Workflow execution failed.")
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(ex),
-        )
+    return ChatResponse(
+        session_id=request.session_id,
+        workflow=results,
+        workflow_graph=graph,
+        final_response=final_response,
+    )
